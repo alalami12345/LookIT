@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LookIt // Global (RTDB)</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #0f0f16;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary: #6C63FF;
+            --accent: #00f2c3;
+            --danger: #ff4757;
+            --warning: #ffa502;
+            --text: #ffffff;
+            --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        * { box-sizing: border-box; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+
+        body {
+            margin: 0;
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 50% 0%, #2a2a3e 0%, #0f0f16 70%);
+            min-height: 100vh;
+        }
+
+        /* --- 3D / Glass UI --- */
+        .glass-panel {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 90vh;
+            position: relative;
+        }
+
+        h1, h2, h3 { letter-spacing: -1px; margin-top: 0; }
+        h1 { 
+            font-size: 3rem; 
+            background: linear-gradient(90deg, var(--primary), var(--accent)); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            cursor: pointer;
+        }
+
+        /* --- Inputs & Buttons --- */
+        input, select, textarea {
+            width: 100%;
+            padding: 15px;
+            margin: 8px 0;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--glass-border);
+            color: white;
+            border-radius: 10px;
+            font-family: inherit;
+            outline: none;
+            resize: vertical;
+        }
+        input:focus, textarea:focus { border-color: var(--primary); transform: translateY(-2px); }
+
+        button {
+            cursor: pointer;
+            padding: 12px 24px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 700;
+            text-transform: uppercase;
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+        }
+        button:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 8px 25px rgba(108, 99, 255, 0.5); }
+        button.secondary { background: transparent; border: 1px solid var(--glass-border); color: var(--primary); box-shadow: none; }
+        button.danger { background: var(--danger); box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3); }
+        button.google-btn { background: white; color: #333; margin-top: 10px; width: 100%; }
+
+        /* --- Views --- */
+        .view { display: none; animation: fadeIn 0.5s ease forwards; }
+        .view.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- Dashboard Grid --- */
+        .dash-grid { display: grid; grid-template-columns: 350px 1fr; gap: 30px; }
+        @media(max-width: 900px) { .dash-grid { grid-template-columns: 1fr; } }
+
+        .set-card {
+            padding: 20px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .set-card-info { flex-grow: 1; }
+        .set-card:hover { border-color: var(--accent); background: rgba(255,255,255,0.08); }
+        .set-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+            background: var(--accent); transform: scaleY(0); transition: 0.3s;
+        }
+        .set-card:hover::before { transform: scaleY(1); }
+
+        /* --- Search Bar --- */
+        .search-wrapper { position: relative; margin-bottom: 20px; }
+        .search-wrapper input { padding-left: 40px; font-size: 1.1rem; background: rgba(255,255,255,0.05); }
+        .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); opacity: 0.5; }
+
+        /* --- Game UI & Lobby --- */
+        .game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .stat-pill { background: rgba(0,0,0,0.4); padding: 8px 20px; border-radius: 50px; font-weight: bold; border: 1px solid var(--glass-border); }
+
+        .question-box {
+            text-align: center; padding: 40px; margin-bottom: 30px; font-size: 1.5rem;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0));
+        }
+
+        .answers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .answer-btn {
+            height: 80px; font-size: 1.2rem; background: rgba(255,255,255,0.05);
+            border: 2px solid transparent;
+        }
+        .answer-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); }
+        
+        .mode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 20px; }
+        .mode-card { padding: 15px; text-align: left; cursor: pointer; border: 1px solid transparent; }
+        .mode-card:hover { border-color: var(--primary); background: rgba(108, 99, 255, 0.1); }
+        .mode-card h4 { margin: 0 0 5px 0; color: var(--accent); }
+        .mode-card small { opacity: 0.7; font-size: 0.8rem; }
+        
+        .lobby-code { 
+            font-size: 3em; 
+            font-weight: 700; 
+            color: var(--warning); 
+            letter-spacing: 5px;
+            margin: 20px 0;
+        }
+
+        /* --- Builder Styles --- */
+        .q-block { position: relative; padding: 15px; border: 1px solid var(--glass-border); margin-bottom: 10px; border-radius: 8px; background: rgba(0,0,0,0.2); }
+        .q-remove { position: absolute; top: 5px; right: 10px; color: var(--danger); cursor: pointer; font-size: 1.2rem; }
+        
+        .leaderboard-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--glass-border); }
+        .leaderboard-item:last-child { border-bottom: none; }
+
+        /* --- Loading --- */
+        #loader { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--bg-dark); z-index: 999; display: flex; justify-content: center; align-items: center; }
+        .spinner { width: 50px; height: 50px; border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+    <!-- Full Screen Loader -->
+    <div id="loader"><div class="spinner"></div></div>
+
+    <div class="container">
+        
+        <!-- Navbar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 0;">
+            <h1 onclick="Nav.to('view-dashboard')">LookIt</h1>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <!-- Host/Join Game Button -->
+                <button onclick="Nav.to('view-multiplayer-select')" class="secondary" style="color: var(--accent);">
+                    Host/Join Game
+                </button>
+                <div id="user-status" class="glass-panel" style="padding: 8px 16px; font-size: 0.9rem; display:none; cursor: pointer;" onclick="Nav.to('view-settings')">
+                    Guest
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: Auth -->
+        <div id="view-auth" class="view active">
+            <div class="glass-panel" style="max-width: 400px; margin: 50px auto; padding: 40px;">
+                <h2>Enter the Grid</h2>
+                <p style="opacity: 0.7">Log in to sync your global sets.</p>
+                
+                <input type="text" id="username" placeholder="Username (Required for Sign Up)">
+                <input type="email" id="email" placeholder="Email">
+                <input type="password" id="password" placeholder="Password">
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button onclick="Auth.handle('login')" style="flex:1;">Login</button>
+                    <button onclick="Auth.handle('register')" class="secondary" style="flex:1;">Sign Up</button>
+                </div>
+                <button onclick="Auth.googleLogin()" class="google-btn">
+                    <span style="font-size:1.2em; vertical-align:sub;">G</span> Continue with Google
+                </button>
+                <div id="auth-msg" style="margin-top: 15px; color: var(--danger); font-size: 0.9rem;"></div>
+            </div>
+        </div>
+
+        <!-- VIEW: Dashboard -->
+        <div id="view-dashboard" class="view">
+            <div class="dash-grid">
+                <!-- Left: Create -->
+                <div class="glass-panel" style="padding: 20px; height: fit-content; max-height: 85vh; overflow-y: auto;">
+                    <h3>Create Set</h3>
+                    <input type="text" id="new-set-title" placeholder="Set Title (e.g. Math Ch 1)">
+                    <hr style="border-color: var(--glass-border); margin: 20px 0;">
+                    
+                    <div id="builder-area">
+                        <!-- Builder inputs injected here -->
+                    </div>
+                    
+                    <button onclick="Builder.addInput()" class="secondary" style="width:100%; margin-bottom: 10px;">+ Add Question</button>
+                    <button onclick="Builder.save()" style="width:100%;">Publish Global</button>
+                </div>
+
+                <!-- Right: Browser -->
+                <div>
+                    <div class="glass-panel" style="padding: 20px; margin-bottom: 20px; display: flex; align-items: center;">
+                        <div class="search-wrapper" style="margin:0; flex-grow: 1;">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="search-bar" placeholder="Search global sets..." onkeyup="Dash.filterSets()">
+                        </div>
+                    </div>
+
+                    <div id="sets-list">
+                        <!-- Sets injected here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: Single Player Lobby -->
+        <div id="view-lobby" class="view">
+            <button onclick="Nav.to('view-dashboard')" class="secondary">← Back</button>
+            <div class="glass-panel" style="max-width: 800px; margin: 40px auto; padding: 40px; text-align: center;">
+                <h2 id="lobby-title">Single Player</h2>
+                <p>Select your Game Mode</p>
+                
+                <div class="mode-grid">
+                    <div class="mode-card glass-panel" onclick="Game.startSingle(0)">
+                        <h4>Classic</h4><small>Standard rules. No gimmicks.</small>
+                    </div>
+                    <div class="mode-card glass-panel" onclick="Game.startSingle(1)">
+                        <h4>Hustle</h4><small>Double points, 2x faster time.</small>
+                    </div>
+                    <div class="mode-card glass-panel" onclick="Game.startSingle(2)">
+                        <h4 style="color:var(--danger)">Glitch</h4><small>Wrong answers lose points.</small>
+                    </div>
+                    <div class="mode-card glass-panel" onclick="Game.startSingle(3)">
+                        <h4 style="color:var(--accent)">Zen</h4><small>No timer. Infinite play.</small>
+                    </div>
+                    <div class="mode-card glass-panel" onclick="Game.startSingle(4)">
+                        <h4 style="color:var(--warning)">Gold Rush</h4><small>Money x5, Costs x5.</small>
+                    </div>
+                    <div class="mode-card glass-panel" onclick="Game.startSingle(5)">
+                        <h4 style="color:#d63031">Boss Battle</h4><small>Beat the CPU score.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: Multiplayer Select -->
+        <div id="view-multiplayer-select" class="view">
+            <button onclick="Nav.to('view-dashboard')" class="secondary">← Back</button>
+            <div class="glass-panel" style="max-width: 600px; margin: 40px auto; padding: 40px; text-align: center;">
+                <h2>Multiplayer Portal</h2>
+                
+                <div style="display: flex; gap: 20px; margin-top: 30px;">
+                    <button onclick="Multiplayer.hostSelect()" style="flex:1; background: var(--accent);">HOST GAME</button>
+                    <button onclick="Multiplayer.joinShow()" style="flex:1;">JOIN GAME</button>
+                </div>
+
+                <div id="join-section" style="margin-top: 20px; display: none;">
+                    <input type="text" id="join-code" placeholder="Enter 4-digit code">
+                    <button onclick="Multiplayer.joinGame(document.getElementById('join-code').value)" style="width: 100%;">GO</button>
+                    <div id="join-msg" style="color: var(--danger); margin-top: 10px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: Host/Join Game (Lobby) -->
+        <div id="view-host-lobby" class="view">
+            <button onclick="Multiplayer.leaveLobby()" class="danger">← Leave Lobby</button>
+            <div class="glass-panel" style="max-width: 800px; margin: 20px auto; padding: 30px;">
+                <div style="text-align: center;">
+                    <h2>Lobby Code</h2>
+                    <div class="lobby-code" id="lobby-code-display">0000</div>
+                    <p id="lobby-set-name"></p>
+                </div>
+
+                <hr style="border-color: var(--glass-border); margin: 20px 0;">
+
+                <div id="host-controls" style="display: none; text-align: center; margin-bottom: 20px;">
+                    <h3>Host Controls</h3>
+                    <div id="host-mode-select" class="mode-grid" style="margin-bottom: 20px;">
+                         <!-- Modes loaded here for host -->
+                    </div>
+                    <button onclick="Multiplayer.startGame()" style="width:100%;">START GAME</button>
+                </div>
+
+                <h3>Players (<span id="player-count">0</span>)</h3>
+                <div id="lobby-player-list">
+                    <!-- Players monitored here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- VIEW: Multiplayer Game -->
+        <div id="view-multiplayer-game" class="view">
+             <button onclick="Multiplayer.leaveGame()" class="danger">← End/Leave Game</button>
+            <div class="game-header">
+                <div class="stat-pill" id="mp-question-status">Question: 1</div>
+                <div class="stat-pill" id="mp-timer-el">Live Game</div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px;">
+                <!-- Left: Question & Answers -->
+                <div>
+                    <div class="glass-panel question-box">
+                        <div id="mp-q-text">Waiting for host...</div>
+                    </div>
+                    <div class="answers-grid" id="mp-options-grid">
+                        <!-- Options -->
+                    </div>
+                </div>
+
+                <!-- Right: Live Leaderboard (Game Monitoring) -->
+                <div class="glass-panel" style="padding: 20px;">
+                    <h3>Live Leaderboard</h3>
+                    <div id="mp-leaderboard">
+                        <!-- Leaderboard -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- VIEW: Settings -->
+        <div id="view-settings" class="view">
+            <button onclick="Nav.to('view-dashboard')" class="secondary">← Back</button>
+            <div class="glass-panel" style="max-width: 400px; margin: 40px auto; padding: 40px;">
+                <h2>Account Settings</h2>
+                <label>Display Name</label>
+                <input type="text" id="settings-name" placeholder="New Username">
+                <button onclick="Settings.updateProfile()">Save Changes</button>
+                <hr style="border-color: var(--glass-border); margin: 20px 0;">
+                <button onclick="Auth.logout()" class="danger" style="width:100%;">Log Out</button>
+            </div>
+        </div>
+
+        <!-- VIEW: Single Player Game -->
+        <div id="view-game" class="view">
+            <button onclick="Game.endSingle()" class="danger">← End Game</button>
+            <div class="game-header">
+                <div class="stat-pill" id="timer-el">60s</div>
+                <div class="stat-pill" id="boss-pill" style="display:none; border-color: var(--danger)">Boss: $0</div>
+                <div class="stat-pill" style="border-color: var(--accent)">$<span id="score-el">0</span></div>
+            </div>
+
+            <div class="glass-panel question-box">
+                <div id="q-text">Loading...</div>
+            </div>
+
+            <div class="answers-grid" id="options-grid">
+                <!-- Options -->
+            </div>
+
+            <div style="margin-top: 30px; text-align: center;">
+                <div class="glass-panel" style="display: inline-block; padding: 20px;">
+                    <h4>Shop</h4>
+                    <button onclick="Game.buySingle('mult')" class="secondary" id="btn-mult">Multiplier ($50)</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+// --- 1. CONFIGURATION ---
+const firebaseConfig = {
+    apiKey: "AIzaSyAYmdrA7We0KRKEq8D4wjhGuXqMu9b5Qy4",
+    authDomain: "gimkit-105d1.firebaseapp.com",
+    databaseURL: "https://gimkit-105d1-default-rtdb.firebaseio.com", 
+    projectId: "gimkit-105d1",
+    storageBucket: "gimkit-105d1.firebasestorage.app",
+    messagingSenderId: "1002583212768",
+    appId: "1:1002583212768:web:df5530acf9000d14670685"
+};
+
+// Init Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+
+// Game Modes Configuration
+const GAME_MODES = [
+    { name: "Classic", desc: "Standard rules. $100 points, 60s." },
+    { name: "Hustle", desc: "Double points, 2x faster time (30s)." },
+    { name: "Glitch", desc: "Wrong answers lose $50." },
+    { name: "Zen", desc: "No timer. Infinite play." },
+    { name: "Gold Rush", desc: "Money x5, Costs x5." },
+    { name: "Boss Battle", desc: "Beat the CPU score." }
+];
+
+// --- 2. STATE ---
+const State = {
+    user: null,
+    sets: [], 
+    activeSet: null, // Single player set data
+    score: 0, // Single player score
+    bossScore: 0,
+    mult: 1,
+    mode: 0,
+    timer: null,
+    
+    // Multiplayer State
+    lobbyCode: null,
+    lobbyRef: null,
+    isHost: false,
+    lobbyData: null,
+    mpGameMode: 0, // Selected mode for multiplayer
+    mpListener: null,
+};
+
+// --- 3. UTILITIES ---
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+function generateCode(length = 4) {
+    return Math.random().toString(36).substring(2, 2 + length).toUpperCase();
+}
+
+
+// --- 4. NAVIGATION ---
+const Nav = {
+    to: (viewId) => {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+        
+        if(viewId === 'view-settings' && State.user) {
+            document.getElementById('settings-name').value = State.user.displayName || "";
+        }
+        
+        if (viewId === 'view-host-lobby' && State.isHost) {
+            // Populate host mode selector
+            const selector = document.getElementById('host-mode-select');
+            selector.innerHTML = GAME_MODES.map((m, i) => `
+                <div class="mode-card glass-panel" onclick="Multiplayer.selectMode(${i})">
+                    <h4 style="color:${i==State.mpGameMode ? 'var(--warning)' : 'var(--accent)'}">${m.name}</h4><small>${m.desc}</small>
+                </div>
+            `).join('');
+            document.getElementById('host-controls').style.display = 'block';
+        }
+    },
+    loader: (show) => {
+        document.getElementById('loader').style.display = show ? 'flex' : 'none';
+    }
+};
+
+// --- 5. AUTHENTICATION ---
+const Auth = {
+    init: () => {
+        auth.onAuthStateChanged(u => {
+            Nav.loader(false);
+            if(u) {
+                State.user = u;
+                const displayName = u.displayName || u.email.split('@')[0];
+                document.getElementById('user-status').innerText = displayName;
+                document.getElementById('user-status').style.display = 'block';
+                Nav.to('view-dashboard');
+                Dash.loadGlobalSets();
+            } else {
+                Nav.to('view-auth');
+            }
+        });
+    },
+    handle: async (type) => {
+        const e = document.getElementById('email').value;
+        const p = document.getElementById('password').value;
+        const uName = document.getElementById('username').value;
+        const msg = document.getElementById('auth-msg');
+        
+        if(!e || !p) return msg.innerText = "Missing email or password.";
+        if(type === 'register' && !uName) return msg.innerText = "Username is required for new accounts.";
+
+        try {
+            Nav.loader(true);
+            if(type === 'login') {
+                await auth.signInWithEmailAndPassword(e, p);
+            } else {
+                const cred = await auth.createUserWithEmailAndPassword(e, p);
+                await cred.user.updateProfile({ displayName: uName });
+                State.user = cred.user; 
+            }
+        } catch(err) {
+            Nav.loader(false);
+            msg.innerText = err.message;
+        }
+    },
+    googleLogin: async () => {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        try {
+            await auth.signInWithPopup(provider);
+        } catch(e) {
+            alert("Google Sign-In Error: " + e.message);
+        }
+    },
+    logout: () => auth.signOut()
+};
+
+// --- 6. SETTINGS ---
+const Settings = {
+    updateProfile: async () => {
+        const newName = document.getElementById('settings-name').value;
+        if(!newName) return alert("Name cannot be empty");
+        
+        Nav.loader(true);
+        try {
+            await State.user.updateProfile({ displayName: newName });
+            document.getElementById('user-status').innerText = newName;
+            alert("Profile Updated!");
+            Nav.to('view-dashboard');
+        } catch(e) {
+            alert(e.message);
+        }
+        Nav.loader(false);
+    }
+};
+
+// --- 7. DASHBOARD & SET MANAGEMENT ---
+const Dash = {
+    loadGlobalSets: async () => {
+        const list = document.getElementById('sets-list');
+        list.innerHTML = '<div style="text-align:center; opacity:0.5">Fetching global data...</div>';
+        try {
+            const snap = await db.ref('lookit_sets').limitToLast(20).once('value');
+            const data = snap.val();
+            State.sets = [];
+            if (data) {
+                State.sets = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+                State.sets.reverse();
+            }
+            Dash.renderSets(State.sets);
+        } catch(e) {
+            console.error(e);
+            list.innerHTML = '<div style="color:var(--danger)">Error: Check Database Rules.</div>';
+        }
+    },
+    renderSets: (data) => {
+        const list = document.getElementById('sets-list');
+        list.innerHTML = '';
+        if(data.length === 0) list.innerHTML = '<div style="text-align:center">No sets found. Create one!</div>';
+        
+        data.forEach((s) => {
+            const card = document.createElement('div');
+            card.className = 'set-card glass-panel';
+            const authName = s.authorName || (s.authorEmail ? s.authorEmail.split('@')[0] : 'Anon');
+            
+            card.innerHTML = `
+                <div class="set-card-info" onclick="Dash.selectSet('${s.id}')">
+                    <h3>${s.title}</h3>
+                    <div style="display:flex; justify-content:space-between; opacity:0.7; font-size:0.85rem;">
+                        <span>${s.questions.length} Qs</span>
+                        <span>By: ${authName}</span>
+                    </div>
+                </div>
+                ${s.author === State.user.uid ? 
+                    `<button class="danger" style="margin-left: 10px; padding: 10px 15px;" onclick="Dash.deleteSet('${s.id}', '${s.title}')">
+                        DEL
+                    </button>` : ''
+                }
+            `;
+            list.appendChild(card);
+        });
+    },
+    selectSet: (setId) => {
+        State.activeSet = State.sets.find(s => s.id === setId);
+        document.getElementById('lobby-title').innerText = `Play: ${State.activeSet.title}`;
+        Nav.to('view-lobby');
+    },
+    deleteSet: async (setId, title) => {
+        if (!confirm(`Are you sure you want to delete the set: "${title}"? This is permanent.`)) return;
+        
+        Nav.loader(true);
+        try {
+            await db.ref(`lookit_sets/${setId}`).remove();
+            await Dash.loadGlobalSets();
+        } catch(e) {
+            alert("Failed to delete set: " + e.message);
+        }
+        Nav.loader(false);
+    },
+    filterSets: () => {
+        const term = document.getElementById('search-bar').value.toLowerCase();
+        const filtered = State.sets.filter(s => s.title.toLowerCase().includes(term));
+        Dash.renderSets(filtered);
+    }
+};
+
+// --- 8. SET BUILDER ---
+const Builder = {
+    addInput: () => {
+        const div = document.createElement('div');
+        div.className = 'q-block';
+        div.innerHTML = `
+            <div class="q-remove" onclick="this.parentElement.remove()">×</div>
+            <textarea placeholder="Question Text" class="b-q" rows="2" style="font-weight:bold;"></textarea>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div>
+                    <label style="font-size:0.8em; color:var(--accent)">Correct Answers (1 per line)</label>
+                    <textarea class="b-c" rows="3" placeholder="e.g.&#10;Paris&#10;paris&#10;PARIS" style="border-color:var(--accent)"></textarea>
+                </div>
+                <div>
+                    <label style="font-size:0.8em; color:var(--danger)">Wrong Answers (1 per line)</label>
+                    <textarea class="b-w" rows="3" placeholder="e.g.&#10;London&#10;Berlin&#10;Rome"></textarea>
+                </div>
+            </div>
+        `;
+        document.getElementById('builder-area').appendChild(div);
+    },
+    save: async () => {
+        const title = document.getElementById('new-set-title').value;
+        const blocks = document.querySelectorAll('#builder-area > .q-block');
+        
+        if(!title || blocks.length === 0) return alert("Fill out title and at least 1 question.");
+        
+        Nav.loader(true);
+        const questions = [];
+        blocks.forEach(b => {
+            const q = b.querySelector('.b-q').value.trim();
+            const cRaw = b.querySelector('.b-c').value.split('\n').map(s=>s.trim()).filter(s=>s);
+            const wRaw = b.querySelector('.b-w').value.split('\n').map(s=>s.trim()).filter(s=>s);
+            
+            if(q && cRaw.length > 0 && wRaw.length > 0) {
+                questions.push({ q, c: cRaw, w: wRaw });
+            }
+        });
+
+        if(questions.length === 0) {
+            Nav.loader(false);
+            return alert("Questions must have valid inputs.");
+        }
+
+        const authorName = State.user.displayName || State.user.email.split('@')[0];
+
+        await db.ref('lookit_sets').push({
+            title,
+            questions,
+            author: State.user.uid,
+            authorEmail: State.user.email,
+            authorName: authorName,
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+        });
+        
+        document.getElementById('new-set-title').value = '';
+        document.getElementById('builder-area').innerHTML = '';
+        Builder.addInput(); 
+        await Dash.loadGlobalSets();
+        Nav.loader(false);
+    }
+};
+
+// --- 9. SINGLE PLAYER GAME ENGINE ---
+const Game = {
+    // Single player implementation
+    startSingle: (mode) => {
+        if (!State.activeSet) return Nav.to('view-dashboard');
+        State.mode = mode;
+        State.score = 0;
+        State.bossScore = 0;
+        State.mult = 1;
+        Nav.to('view-game');
+        
+        let time = 60;
+        if(mode === 1) time = 30; // Hustle
+        if(mode === 3) time = 999999; // Zen
+        
+        document.getElementById('boss-pill').style.display = (mode === 5) ? 'block' : 'none';
+
+        Game.renderUISingle();
+        Game.nextQSingle();
+        
+        if(State.timer) clearInterval(State.timer);
+
+        State.timer = setInterval(() => {
+            time--;
+            document.getElementById('timer-el').innerText = (mode === 3 ? '∞' : time + 's');
+            
+            if(mode === 5) {
+                State.bossScore += Math.floor(Math.random() * 150); 
+                document.getElementById('boss-pill').innerText = `Boss: $${State.bossScore}`;
+            }
+
+            if(time <= 0 && mode !== 3) Game.endSingle();
+        }, 1000);
+    },
+    
+    nextQSingle: () => {
+        const set = State.activeSet.questions;
+        const qData = set[Math.floor(Math.random() * set.length)];
+        
+        document.getElementById('q-text').innerText = qData.q;
+        
+        const corrects = Array.isArray(qData.c) ? qData.c : [qData.c];
+        const wrongs = Array.isArray(qData.w) ? qData.w : [];
+        
+        const correctAns = corrects[Math.floor(Math.random() * corrects.length)];
+        const mixedWrongs = wrongs.sort(() => 0.5 - Math.random()).slice(0, 3);
+        
+        let answers = [ 
+            { txt: correctAns, correct: true }, 
+            ...mixedWrongs.map(w => ({ txt: w, correct: false })) 
+        ];
+        shuffleArray(answers);
+        
+        const grid = document.getElementById('options-grid');
+        grid.innerHTML = '';
+        
+        answers.forEach(a => {
+            const btn = document.createElement('button');
+            btn.className = 'answer-btn glass-panel';
+            btn.innerText = a.txt;
+            btn.onclick = () => Game.handleSingle(a.correct, btn);
+            grid.appendChild(btn);
+        });
+    },
+    
+    handleSingle: (correct, btn) => {
+        if(btn.disabled) return;
+        document.querySelectorAll('.answer-btn').forEach(b => b.disabled = true); // Disable options
+
+        if(correct) {
+            btn.style.background = "var(--accent)";
+            let gain = 100 * State.mult;
+            if(State.mode === 1) gain *= 2; 
+            if(State.mode === 4) gain *= 5; 
+            State.score += gain;
+            setTimeout(() => { Game.nextQSingle(); document.querySelectorAll('.answer-btn').forEach(b => b.disabled = false); }, 300);
+        } else {
+            btn.style.background = "var(--danger)";
+            if(State.mode === 2) State.score -= 50; 
+            setTimeout(() => { Game.nextQSingle(); document.querySelectorAll('.answer-btn').forEach(b => b.disabled = false); }, 500);
+        }
+        Game.renderUISingle();
+    },
+    
+    buySingle: (type) => {
+        if(type === 'mult') {
+            let cost = 50 * State.mult;
+            if(State.mode === 4) cost *= 5; 
+            
+            if(State.score >= cost) {
+                State.score -= cost;
+                State.mult++;
+            }
+        }
+        Game.renderUISingle();
+    },
+    
+    renderUISingle: () => {
+        document.getElementById('score-el').innerText = State.score;
+        let cost = 50 * State.mult;
+        if(State.mode === 4) cost *= 5;
+        document.getElementById('btn-mult').innerText = `Multiplier x${State.mult} ($${cost})`;
+    },
+    
+    endSingle: () => {
+        clearInterval(State.timer);
+        let msg = `Game Over!\nFinal Score: $${State.score}`;
+        if(State.mode === 5) {
+            msg += `\nBoss Score: $${State.bossScore}\nResult: ${State.score > State.bossScore ? "YOU WON!" : "YOU LOST!"}`;
+        }
+        alert(msg);
+        Nav.to('view-dashboard');
+    }
+};
+
+// --- 10. MULTIPLAYER ENGINE ---
+const Multiplayer = {
+    // Stage 1: Host/Join Select
+    hostSelect: () => {
+        if (State.sets.filter(s => s.questions.length > 0).length === 0) {
+            return alert("You need at least one question set to host a game.");
+        }
+        // Instead of hosting immediately, show sets for selection
+        const setsListHtml = State.sets.map(s => `
+            <div class="set-card glass-panel" onclick="Multiplayer.createLobby('${s.id}')" style="margin-bottom: 5px;">
+                <div class="set-card-info">
+                    <strong>${s.title}</strong> (${s.questions.length} Qs)
+                </div>
+            </div>
+        `).join('');
+        
+        document.getElementById('sets-list').innerHTML = `
+            <div class="glass-panel" style="padding: 20px; margin-bottom: 20px;">
+                <h3>Select Set to Host</h3>
+                ${setsListHtml}
+            </div>
+        `;
+        Nav.to('view-dashboard'); // Temporarily reuse dash view for set selection
+    },
+    joinShow: () => {
+        document.getElementById('join-section').style.display = 'block';
+    },
+
+    // Stage 2: Lobby Creation/Joining
+    createLobby: async (setId) => {
+        Nav.loader(true);
+        const lobbyCode = generateCode(4);
+        State.lobbyCode = lobbyCode;
+        State.isHost = true;
+        
+        const set = State.sets.find(s => s.id === setId);
+        
+        // Initial Lobby Data
+        const lobbyData = {
+            hostId: State.user.uid,
+            setId: setId,
+            title: set.title,
+            status: 'waiting', 
+            gameMode: 0, // Default to classic
+            currentQuestion: 0,
+            questionStartTime: 0,
+            players: {}
+        };
+        
+        // Add host to player list
+        lobbyData.players[State.user.uid] = { 
+            displayName: State.user.displayName || 'Host', 
+            score: 0, 
+            multiplier: 1 
+        };
+        
+        await db.ref(`lookit_lobbies/${lobbyCode}`).set(lobbyData);
+        State.lobbyRef = db.ref(`lookit_lobbies/${lobbyCode}`);
+        
+        document.getElementById('lobby-code-display').innerText = lobbyCode;
+        document.getElementById('lobby-set-name').innerText = `Set: ${set.title}`;
+
+        Multiplayer.listenToLobby();
+        Nav.loader(false);
+        Nav.to('view-host-lobby');
+    },
+
+    joinGame: async (code) => {
+        const lobbyCode = code.toUpperCase();
+        const msg = document.getElementById('join-msg');
+        msg.innerText = '';
+        
+        Nav.loader(true);
+        const snap = await db.ref(`lookit_lobbies/${lobbyCode}`).once('value');
+        const data = snap.val();
+        
+        if (!data) {
+            Nav.loader(false);
+            return msg.innerText = `Code "${lobbyCode}" not found. Try again.`;
+        }
+        
+        State.lobbyCode = lobbyCode;
+        State.isHost = false;
+        State.lobbyRef = db.ref(`lookit_lobbies/${lobbyCode}`);
+        
+        // Add player to the lobby
+        await State.lobbyRef.child(`players/${State.user.uid}`).set({
+            displayName: State.user.displayName || 'Player', 
+            score: 0, 
+            multiplier: 1 
+        });
+
+        document.getElementById('lobby-code-display').innerText = lobbyCode;
+        document.getElementById('lobby-set-name').innerText = `Set: ${data.title}`;
+
+        Multiplayer.listenToLobby();
+        Nav.loader(false);
+        Nav.to('view-host-lobby');
+    },
+    
+    // Stage 3: Lobby Synchronization & Game Flow
+    listenToLobby: () => {
+        // Remove previous listener if any
+        if (State.mpListener) State.lobbyRef.off('value', State.mpListener);
+
+        State.mpListener = State.lobbyRef.on('value', (snap) => {
+            State.lobbyData = snap.val();
+            if (!State.lobbyData) return Multiplayer.handleLobbyClosed();
+
+            const lobby = State.lobbyData;
+            
+            // 1. Update Player List (Monitoring)
+            const players = lobby.players || {};
+            const playerListEl = document.getElementById('lobby-player-list');
+            const playerCountEl = document.getElementById('player-count');
+            
+            const sortedPlayers = Object.values(players)
+                .sort((a, b) => (b.score || 0) - (a.score || 0)); // Sort by score
+            
+            playerCountEl.innerText = Object.keys(players).length;
+            playerListEl.innerHTML = sortedPlayers.map(p => `
+                <div class="leaderboard-item">
+                    <span>${p.displayName}</span>
+                    <span style="font-weight: bold; color: var(--accent);">$${p.score || 0} (x${p.multiplier || 1})</span>
+                </div>
+            `).join('');
+
+            // 2. Handle Status Change
+            if (lobby.status === 'in_game') {
+                Multiplayer.renderGameScreen();
+            } else if (lobby.status === 'waiting') {
+                // Stay in lobby view
+                Nav.to('view-host-lobby');
+            } else if (lobby.status === 'finished') {
+                alert(`Game Finished! Winner: ${sortedPlayers[0].displayName} with $${sortedPlayers[0].score}`);
+                Multiplayer.leaveLobby();
+            }
+        });
+    },
+
+    selectMode: (modeIndex) => {
+        State.mpGameMode = modeIndex;
+        // Update selection visually
+        const selector = document.getElementById('host-mode-select');
+        selector.querySelectorAll('.mode-card').forEach((card, i) => {
+            card.querySelector('h4').style.color = (i === modeIndex) ? 'var(--warning)' : 'var(--accent)';
+        });
+    },
+
+    startGame: async () => {
+        if (!State.isHost) return;
+        
+        // Update lobby status and mode
+        await State.lobbyRef.update({ 
+            status: 'in_game', 
+            gameMode: State.mpGameMode,
+            currentQuestion: 0
+        });
+        
+        // Push the first question
+        await Multiplayer.nextQuestion();
+    },
+
+    nextQuestion: async () => {
+        if (!State.isHost) return;
+        
+        const set = State.sets.find(s => s.id === State.lobbyData.setId);
+        const questions = set.questions;
+
+        const qIndex = Math.floor(Math.random() * questions.length);
+        const qData = questions[qIndex];
+        
+        const corrects = Array.isArray(qData.c) ? qData.c : [qData.c];
+        const wrongs = Array.isArray(qData.w) ? qData.w : [];
+        
+        // Prepare options for clients
+        const correctAns = corrects[Math.floor(Math.random() * corrects.length)];
+        const mixedWrongs = wrongs.sort(() => 0.5 - Math.random()).slice(0, 3);
+        
+        let answers = [ correctAns, ...mixedWrongs ];
+        shuffleArray(answers);
+        
+        // Broadcast new question to all players
+        await State.lobbyRef.update({
+            currentQuestion: State.lobbyData.currentQuestion + 1,
+            questionText: qData.q,
+            correctAnswerOptions: corrects.map(c => c.toLowerCase()), // Correct options list for verification
+            options: answers,
+            questionStartTime: firebase.database.ServerValue.TIMESTAMP
+        });
+    },
+    
+    renderGameScreen: () => {
+        Nav.to('view-multiplayer-game');
+
+        const lobby = State.lobbyData;
+        
+        // Render Question Status
+        document.getElementById('mp-question-status').innerText = `Question: ${lobby.currentQuestion}`;
+
+        // Render Question Text
+        document.getElementById('mp-q-text').innerText = lobby.questionText || "Waiting for host to push next question...";
+        
+        // Render Options
+        const grid = document.getElementById('mp-options-grid');
+        grid.innerHTML = '';
+        
+        if (lobby.options) {
+            lobby.options.forEach(option => {
+                const btn = document.createElement('button');
+                btn.className = 'answer-btn glass-panel';
+                btn.innerText = option;
+                btn.onclick = () => Multiplayer.submitAnswer(option, btn);
+                grid.appendChild(btn);
+            });
+        }
+
+        // Host Control: Add Next Question Button
+        if (State.isHost) {
+            if (!document.getElementById('host-next-btn')) {
+                const nextBtn = document.createElement('button');
+                nextBtn.id = 'host-next-btn';
+                nextBtn.innerText = 'NEXT QUESTION (HOST)';
+                nextBtn.onclick = Multiplayer.nextQuestion;
+                document.getElementById('mp-question-status').insertAdjacentElement('afterend', nextBtn);
+            }
+        } else if (document.getElementById('host-next-btn')) {
+            document.getElementById('host-next-btn').remove();
+        }
+
+        // Render Leaderboard (Game Monitoring)
+        const players = lobby.players || {};
+        const sortedPlayers = Object.values(players)
+            .sort((a, b) => (b.score || 0) - (a.score || 0));
+        
+        document.getElementById('mp-leaderboard').innerHTML = sortedPlayers.map((p, index) => {
+            const isMe = p.displayName === State.user.displayName;
+            return `
+                <div class="leaderboard-item" style="background: ${isMe ? 'rgba(0, 242, 195, 0.1)' : 'none'}; border-color: ${isMe ? 'var(--accent)' : 'var(--glass-border)'}">
+                    <span>${index + 1}. ${p.displayName}</span>
+                    <span style="font-weight: bold; color: var(--accent);">$${p.score || 0}</span>
+                </div>
+            `;
+        }).join('');
+    },
+    
+    submitAnswer: async (answer, btn) => {
+        if (!State.lobbyData || !State.lobbyData.correctAnswerOptions) return;
+        
+        document.querySelectorAll('#mp-options-grid button').forEach(b => b.disabled = true);
+        
+        const isCorrect = State.lobbyData.correctAnswerOptions.includes(answer.toLowerCase());
+        const myPlayerRef = State.lobbyRef.child(`players/${State.user.uid}`);
+        
+        let multiplier = State.lobbyData.players[State.user.uid].multiplier || 1;
+        const mode = State.lobbyData.gameMode;
+
+        if (isCorrect) {
+            btn.style.background = "var(--accent)";
+            let gain = 100 * multiplier;
+            if (mode === 1) gain *= 2; // Hustle
+            if (mode === 4) gain *= 5; // Gold Rush
+            
+            // Atomically update score
+            await myPlayerRef.child('score').transaction(currentScore => (currentScore || 0) + gain);
+
+        } else {
+            btn.style.background = "var(--danger)";
+            if (mode === 2) { // Glitch
+                 await myPlayerRef.child('score').transaction(currentScore => (currentScore || 0) - 50);
+            }
+        }
+        
+        // Re-enable buttons after a short delay (or host pushes next question)
+        setTimeout(() => {
+            document.querySelectorAll('#mp-options-grid button').forEach(b => b.disabled = false);
+            btn.style.background = "rgba(255,255,255,0.05)"; // Reset color
+        }, 1500); 
+    },
+
+    leaveLobby: async () => {
+        if (!State.lobbyRef) return Nav.to('view-dashboard');
+
+        // Remove listener
+        if (State.mpListener) {
+            State.lobbyRef.off('value', State.mpListener);
+            State.mpListener = null;
+        }
+
+        if (State.isHost) {
+            // Host deletes the entire lobby
+            await State.lobbyRef.remove();
+        } else {
+            // Player removes themselves from the player list
+            await State.lobbyRef.child(`players/${State.user.uid}`).remove();
+        }
+
+        State.lobbyCode = null;
+        State.lobbyRef = null;
+        State.isHost = false;
+        State.lobbyData = null;
+        Nav.to('view-dashboard');
+    },
+
+    leaveGame: async () => {
+        // Simple alert for now, host can manually delete the game for everyone.
+        alert("Game Over! Ask the host to end the game formally.");
+        Nav.to('view-dashboard');
+    },
+
+    handleLobbyClosed: () => {
+        alert("The host has ended the game. You've been returned to the dashboard.");
+        State.lobbyRef = null;
+        State.lobbyCode = null;
+        State.isHost = false;
+        Nav.to('view-dashboard');
+    }
+};
+
+// Initialize
+Builder.addInput();
+Auth.init();
+
+</script>
+</body>
+</html>
